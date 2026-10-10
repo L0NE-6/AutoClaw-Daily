@@ -134,7 +134,8 @@ def signed_headers(token):
         "X-Product": "autoclaw",
         "X-Client-Type": "pc",
         "X-Harness-Type": "zcode",
-        "X-Tm": "win" if host_platform.system().lower() == "windows" else "linux",
+        # 平台标识只认官方桌面端的 win / mac；Linux（容器）回落 win，发 linux 会被部分账号 403
+        "X-Tm": "mac" if host_platform.system().lower() == "darwin" else "win",
         "X-Lang": "zh-CN",
         "X-Channel": "official",
         "X-Auth-Appid": APP_ID,
