@@ -30,6 +30,7 @@
 import base64
 import hashlib
 import hmac
+import datetime
 import json
 import os
 import platform as host_platform
@@ -288,6 +289,81 @@ def do_checkin(account):
     return False, "签到未领取（%s）" % (hint or "上游未返回成功标记")
 
 
+
+# ---------- 活动福利（Weekly Perks 这类「活跃即发」活动） ----------
+# 这类活动没有领取接口：服务端在账号「登录活跃」时自动入账（判据是服务端的
+# last_login_at，只在登录 / token 刷新时更新；只读接口与 task-complete 都不更新它）。
+# 所以签到本身不会触发放发 —— 签到后读一次积分流水，今天没到账就主动刷新一次
+# 登录态来触发，然后再复核一次。刷新失败不影响签到结论（活动福利是附加收益）。
+
+LEDGERS_PATH = ("/agent-assetmgr/api/v1/ledgers_std?asset_type=point&wallet_type=all"
+                "&cursor=&page_size=30&flow_direction=income")
+ACTIVE_REWARD_PREFIX = "autoclaw_user_active_reward"
+PROMOTION_SETTLE_SECONDS = 1.5
+
+
+def today_key():
+    """北京日期键（与签到、「今天」口径一致）。"""
+    return datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime("%Y-%m-%d")
+
+
+def promotion_status(account):
+    """读积分流水，判断今天的活动福利到没到账。失败返回 None（不阻断签到）。"""
+    try:
+        response = request("GET", USERAPI + LEDGERS_PATH, headers=signed_headers(account["access"]))
+        payload = json_of(response)
+    except Exception:
+        return None
+    if response.status_code != 200 or payload.get("code") not in (0, None):
+        return None
+    entries = ((payload.get("data") or {}).get("entries") or []) if isinstance(payload.get("data"), dict) else []
+    today = today_key()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
+        if str(meta.get("grant_date") or "") != today:
+            continue
+        if not str(meta.get("activity_id") or "").startswith(ACTIVE_REWARD_PREFIX):
+            continue
+        try:
+            points = int(entry.get("amount") or 0)
+        except Exception:
+            points = 0
+        return {"granted": True, "points": points,
+                "description": str(entry.get("description") or "")}
+    return {"granted": False}
+
+
+def trigger_login_active(account):
+    """刷新一次登录态来触发活动福利发放；失败只记日志，不算签到失败。"""
+    if not account.get("refresh"):
+        log("   ℹ️ 账号没有 refresh_token，跳过活动福利触发")
+        return False
+    try:
+        refresh_account(account)
+        persist(account)
+        return True
+    except Exception as error:
+        log("   ⚠️ 触发活动福利失败（不影响签到）：%s" % error)
+        return False
+
+
+def with_promotion(account, success, message):
+    """在签到结果后附加活动福利状态；未到账则先触发一次登录活跃。"""
+    status = promotion_status(account)
+    if status is None:
+        return success, message
+    if not status.get("granted"):
+        if trigger_login_active(account):
+            time.sleep(PROMOTION_SETTLE_SECONDS)
+            retry = promotion_status(account)
+            if retry is not None:
+                status = retry
+    if status.get("granted"):
+        return success, "%s；活动福利 +%s 已到账" % (message, status.get("points") or 0)
+    return success, "%s；活动福利今天尚未到账（多为跨零点的发放延迟，明天再看即可）" % message
+
 # ---------- 推送 ----------
 
 def post_json(url, payload, timeout=20):
@@ -460,7 +536,7 @@ def main():
                 report.append("账号%d %s: ❌ token 续期失败: %s" % (index, account["note"], error))
             continue
         try:
-            success, message = do_checkin(account)
+            success, message = with_promotion(account, *do_checkin(account))
             log("   %s %s" % ("✅" if success else "ℹ️", message))
             report.append("账号%d %s: %s %s" % (index, account["note"], "✅" if success else "ℹ️", message))
         except Exception as error:
