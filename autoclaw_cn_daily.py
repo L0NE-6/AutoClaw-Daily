@@ -290,15 +290,21 @@ def do_checkin(account):
 
 
 
-# ---------- 活动福利（Weekly Perks 这类「活跃即发」活动） ----------
-# 这类活动没有领取接口：服务端在账号「登录活跃」时自动入账（判据是服务端的
-# last_login_at，只在登录 / token 刷新时更新；只读接口与 task-complete 都不更新它）。
-# 所以签到本身不会触发放发 —— 签到后读一次积分流水，今天没到账就主动刷新一次
-# 登录态来触发，然后再复核一次。刷新失败不影响签到结论（活动福利是附加收益）。
+# ---------- 活动福利（Weekly Perks / 登录奖励这类「活跃即发」活动） ----------
+# 这类活动没有领取接口：服务端在账号「登录活跃」时自动入账。2026-10-15 实测：
+# 签到本身、refresh 刷新、home-fetch 都不触发放发，只有客户端启动同款的
+# POST /userapi/v1/user-info 会让当天奖励立刻入账（幂等，重复调用不重复发）。
+# 所以签到后读一次积分流水，今天没到账就打一发 user-info 触发，再复核一次。
+# 触发只带 access token，不轮换 refresh token；失败不影响签到结论（活动福利是附加收益）。
 
 LEDGERS_PATH = ("/agent-assetmgr/api/v1/ledgers_std?asset_type=point&wallet_type=all"
-                "&cursor=&page_size=30&flow_direction=income")
-ACTIVE_REWARD_PREFIX = "autoclaw_user_active_reward"
+                "&cursor=&page_size=50&flow_direction=income")
+USER_INFO_PATH = "/userapi/v1/user-info"
+# 判据以流水 metadata.event_type 前缀为主（活动换期换后缀也不受影响），
+# activity_id 前缀只作 event_type 缺失时的兜底。
+ACTIVE_EVENT_TYPE_PREFIXES = ("autoclaw_user_active", "autoclaw_user_signup_day")
+ACTIVE_ACTIVITY_PREFIXES = ("autoclaw_user_active_reward", "autoclaw_user_active_bonus",
+                            "autoclaw_new_user_day_1_to_7_bonus")
 PROMOTION_SETTLE_SECONDS = 1.5
 
 
@@ -307,8 +313,27 @@ def today_key():
     return datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime("%Y-%m-%d")
 
 
+def _promotion_entry(entry, today):
+    """这条流水是不是今天的「活跃即发」入账；命中返回 (points, description, activity_id)。"""
+    if not isinstance(entry, dict):
+        return None
+    meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
+    if str(meta.get("grant_date") or "") != today:
+        return None
+    event_type = str(meta.get("event_type") or "")
+    activity_id = str(meta.get("activity_id") or "")
+    if not (event_type.startswith(ACTIVE_EVENT_TYPE_PREFIXES)
+            or activity_id.startswith(ACTIVE_ACTIVITY_PREFIXES)):
+        return None
+    try:
+        points = int(entry.get("amount") or 0)
+    except Exception:
+        points = 0
+    return points, str(entry.get("description") or ""), activity_id
+
+
 def promotion_status(account):
-    """读积分流水，判断今天的活动福利到没到账。失败返回 None（不阻断签到）。"""
+    """读积分流水，判断今天的活动福利到没到账（含逐笔明细与合计）。失败返回 None（不阻断签到）。"""
     try:
         response = request("GET", USERAPI + LEDGERS_PATH, headers=signed_headers(account["access"]))
         payload = json_of(response)
@@ -318,39 +343,41 @@ def promotion_status(account):
         return None
     entries = ((payload.get("data") or {}).get("entries") or []) if isinstance(payload.get("data"), dict) else []
     today = today_key()
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
-        if str(meta.get("grant_date") or "") != today:
-            continue
-        if not str(meta.get("activity_id") or "").startswith(ACTIVE_REWARD_PREFIX):
-            continue
-        try:
-            points = int(entry.get("amount") or 0)
-        except Exception:
-            points = 0
-        return {"granted": True, "points": points,
-                "description": str(entry.get("description") or "")}
-    return {"granted": False}
+    matched = [item for item in (_promotion_entry(entry, today) for entry in entries) if item]
+    if not matched:
+        return {"granted": False}
+    total = sum(item[0] for item in matched)
+    return {
+        "granted": True,
+        "points": total,
+        "description": matched[0][1],
+        "entries": [{"points": p, "description": d, "activityId": a} for p, d, a in matched],
+    }
 
 
 def trigger_login_active(account):
-    """刷新一次登录态来触发活动福利发放；失败只记日志，不算签到失败。"""
-    if not account.get("refresh"):
-        log("   ℹ️ 账号没有 refresh_token，跳过活动福利触发")
+    """打一发客户端启动同款的「登录」user-info，触发活动福利发放；失败只记日志。"""
+    if not account.get("access"):
+        log("   ℹ️ 账号没有 access token，跳过活动福利触发")
         return False
+    body = {"source_id": "autoclaw", "device_id": account.get("device_id", "")}
     try:
-        refresh_account(account)
-        persist(account)
-        return True
+        response = request("POST", USERAPI + USER_INFO_PATH,
+                           headers=signed_headers(account["access"]), body=body)
+        payload = json_of(response)
+        code = payload.get("code")
+        if response.status_code == 200 and code in (0, None):
+            return True
+        message = first_text(payload.get("msg"), payload.get("message")) or ("HTTP %s" % response.status_code)
+        log("   ⚠️ 触发活动福利失败（不影响签到）：code=%s msg=%s" % (code, message))
+        return False
     except Exception as error:
         log("   ⚠️ 触发活动福利失败（不影响签到）：%s" % error)
         return False
 
 
 def with_promotion(account, success, message):
-    """在签到结果后附加活动福利状态；未到账则先触发一次登录活跃。"""
+    """在签到结果后附加活动福利状态；未到账则先打一发登录触发。"""
     status = promotion_status(account)
     if status is None:
         return success, message
