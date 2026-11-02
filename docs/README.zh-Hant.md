@@ -67,6 +67,14 @@ DINGTALK_SECRET         # 選填
 
 `autoclaw_cn_tokens.json` 與 `autoclaw_intl_tokens.json` 含憑證且已被 Git 忽略。請勿在 Issue 或 Pull Request 公開 Token、手機號、`openclaw.json` 或本機狀態檔。
 
+## 使用邊界與轉載聲明
+
+本專案的官方版本免費，包括倉庫、腳本、部署說明與 Release 下載。
+
+未經作者明確書面許可，不得將本專案包裝為付費資源、內部版、獨家版、會員權益、收費課程、付費部署或包更新服務；不得搬運到無關帳號、群組或頻道進行漲粉、截流或引流；不得刪除作者與版權資訊後冒充原創；不得使用作者暱稱、頭像、收款碼或專案名稱製造官方授權背書假象。
+
+違規時，作者可要求下架相關內容，並可暫停更新、封存或刪除倉庫。完整規則見 [NOTICE.md](../NOTICE.md)。
+
 ## 專案連結
 
 - [Releases](https://github.com/L0NE-6/AutoClaw-Daily/releases)
