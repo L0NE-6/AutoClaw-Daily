@@ -216,6 +216,7 @@ python autoclaw_login.py --extract-intl --path /path/to/openclaw.json --note 国
 <a id="release"></a>
 
 ## 📦 版本与发布
+- 当前发布版：`v1.0.5`（2026-11-04，文档发行版；脚本逻辑仍为 `v1.0.4`）。
 
 每次更新单独发布 Release，附完整包、签到脚本单文件与 `SHA256SUMS.txt`。下载页：[Releases](https://github.com/L0NE-6/AutoClaw-Daily/releases)。
 
