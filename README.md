@@ -6,7 +6,7 @@
 
 **AutoClaw 国内版与国际版每日签到，单文件脚本、多账号与 Token 自动续期。**
 
-> 当前版本：**v1.0.5**（2026-11-03） · 最新更新：文档发行版：统一使用边界、反收费声明与六语导航
+> 当前版本：**v1.0.5**（2026-11-04） · 最新更新：文档发行版：统一使用边界、反收费声明与六语导航
 
 [简体中文](README.md) · [English](docs/README.en.md) · [繁體中文](docs/README.zh-Hant.md) · [日本語](docs/README.ja.md) · [한국어](docs/README.ko.md) · [Português (BR)](docs/README.pt-BR.md)
 
