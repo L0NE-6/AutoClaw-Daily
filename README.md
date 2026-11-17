@@ -6,7 +6,7 @@
 
 **AutoClaw 国内版与国际版每日签到，单文件脚本、多账号与 Token 自动续期。**
 
-> 当前版本：**v1.0.5**（2026-11-04） · 最新更新：文档发行版：统一使用边界、反收费声明与六语导航
+> 当前版本：**v1.0.6**（2026-11-17） · 最新更新：修复短信登录接口路径、验证码类型与桌面端平台参数
 
 [简体中文](README.md) · [English](docs/README.en.md) · [繁體中文](docs/README.zh-Hant.md) · [日本語](docs/README.ja.md) · [한국어](docs/README.ko.md) · [Português (BR)](docs/README.pt-BR.md)
 
@@ -218,7 +218,7 @@ python autoclaw_login.py --extract-intl --path /path/to/openclaw.json --note 国
 <a id="release"></a>
 
 ## 📦 版本与发布
-- 当前发布版：`v1.0.5`（2026-11-04，文档发行版；脚本逻辑仍为 `v1.0.4`）。
+- 当前发布版：`v1.0.6`（2026-11-17，修复国内版短信登录契约）。
 
 每次更新单独发布 Release，附完整包、签到脚本单文件与 `SHA256SUMS.txt`。下载页：[Releases](https://github.com/L0NE-6/AutoClaw-Daily/releases)。
 

@@ -41,7 +41,7 @@ except Exception:
 CN_BASE = "https://autoglm-acceleration-api.zhipuai.cn"
 INTL_BASE = "https://autoglm-api.autoglm.ai"
 SEND_CODE_PATH = "/userapi/v1/agent-send-code"
-LOGIN_PATH = "/userapi/v1/agent-login/"
+LOGIN_PATH = "/userapi/v1/agent-login"
 TASK_LIST_PATH = "/autoclaw-proxy/proxy/autoclaw-task-list"
 OPENCLAW_FILE = os.path.join(os.path.expanduser("~"), ".openclaw-autoclaw", "openclaw.json")
 
@@ -75,7 +75,7 @@ def normalize_code(raw):
     text = str(raw or "").strip()
     if not re.fullmatch(r"\d{6}", text):
         raise ValueError("验证码格式不对，需要 6 位数字")
-    return text
+    return int(text)
 
 
 def strip_bearer(token):
@@ -156,7 +156,7 @@ def send_code(phone):
 def login_with_code(phone, code, device_id):
     log("🔐 提交验证码登录 ...")
     response = request("POST", CN_BASE + LOGIN_PATH, headers=signed_headers(),
-                       body={"phone": phone, "code": code, "platform": "web",
+                       body={"phone": phone, "code": code, "platform": "win",
                              "source_id": "autoclaw", "device_id": device_id})
     payload = json_of(response)
     status = payload.get("code")
