@@ -4,6 +4,8 @@ AutoClaw 國內版與國際版每日簽到自動化。專案採用單檔 Python 
 
 [简体中文](../README.md) · [English](README.en.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Português (BR)](README.pt-BR.md)
 
+**目前版本：** v1.0.6
+
 完整中文文件請見 [../README.md](../README.md)。
 
 ## 核心能力

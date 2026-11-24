@@ -4,6 +4,8 @@ AutoClaw 중국판과 국제판의 일일 체크인을 자동화하는 단일 �
 
 [简体中文](../README.md) · [English](README.en.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Português (BR)](README.pt-BR.md)
 
+**현재 버전:** v1.0.6
+
 전체 중국어 문서는 [../README.md](../README.md)에서 확인하세요.
 
 ## 주요 기능
